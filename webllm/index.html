@@ -1,0 +1,992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Llama-3.2-1B-Instruct with WebLLM</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .status-bar {
+            background: #f8f9fa;
+            padding: 15px 30px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        #status {
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .chat-container {
+            height: 400px;
+            overflow-y: auto;
+            padding: 20px 30px;
+            background: #f8f9fa;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            padding: 15px 20px;
+            border-radius: 15px;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+
+        .user-message {
+            background: #007bff;
+            color: white;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .assistant-message {
+            background: white;
+            border: 1px solid #e9ecef;
+            margin-right: auto;
+        }
+
+        .input-container {
+            padding: 30px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: flex-end;
+        }
+
+        .input-group {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #promptInput {
+            width: 100%;
+            padding: 15px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+            resize: vertical;
+            min-height: 50px;
+        }
+
+        #promptInput:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .file-input-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        #fileInput {
+            position: absolute;
+            left: -9999px;
+            opacity: 0;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 15px;
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+            color: #495057;
+        }
+
+        .file-input-label:hover {
+            background: #e9ecef;
+            border-color: #007bff;
+        }
+
+        .file-input-label.has-file {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+
+        .file-preview {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 12px;
+            color: #666;
+            max-height: 80px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .file-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            font-size: 12px;
+        }
+
+        .remove-file {
+            background: none;
+            border: none;
+            color: #dc3545;
+            cursor: pointer;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+        .remove-file:hover {
+            background: #f8d7da;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+            background: #545b62;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .model-selector {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .model-selector label {
+            font-size: 0.9em;
+            color: #666;
+            font-weight: 500;
+        }
+
+        select {
+            padding: 8px 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 0.9em;
+            background: white;
+            cursor: pointer;
+            min-width: 250px;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .size-info {
+            font-size: 0.8em;
+            color: #28a745;
+            font-weight: 500;
+        }
+
+        .model-info {
+            background: #e3f2fd;
+            padding: 20px 30px;
+            border-top: 1px solid #e9ecef;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+            }
+            
+            .input-row {
+                flex-direction: column;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🦙 Llama-3.2-1B-Instruct</h1>
+            <p>Powered by WebLLM - Running in your browser!</p>
+        </div>
+
+        <div class="status-bar">
+            <div id="status">Click "Initialize Model" to start loading selected model...</div>
+            <div id="modelStatus" style="margin-top: 5px; font-size: 0.9em; color: #28a745; font-weight: bold;"></div>
+        </div>
+
+        <div class="chat-container" id="chatContainer">
+            <div class="loading" id="loadingIndicator" style="display: none;">
+                <div class="spinner"></div>
+                <p id="loadingText">Loading model...<br>
+                This may take a few minutes on first load.</p>
+            </div>
+        </div>
+
+        <div class="input-container">
+            <div class="input-row">
+                <div class="input-group">
+                    <textarea 
+                        id="promptInput" 
+                        placeholder="Type your message here..."
+                        disabled
+                        rows="2"
+                    ></textarea>
+                    
+                    <div class="file-input-container">
+                        <input 
+                            type="file" 
+                            id="fileInput" 
+                            accept=".txt,.md,.csv,.json,.js,.py,.html,.css,.xml,.log"
+                            disabled
+                        >
+                        <label for="fileInput" class="file-input-label" id="fileInputLabel">
+                            📎 Attach File
+                        </label>
+                        <div class="file-actions" id="fileActions" style="display: none;">
+                            <span id="fileName"></span>
+                            <button type="button" class="remove-file" id="removeFile">✕</button>
+                        </div>
+                    </div>
+                    
+                    <div class="file-preview" id="filePreview"></div>
+                </div>
+                <button id="sendButton" class="btn btn-primary" disabled>Send</button>
+            </div>
+            
+            <div class="controls">
+                <div class="model-selector">
+                    <label for="modelSelect">Choose Model Size:</label>
+                    <select id="modelSelect">
+                        <option value="TinyLlama-1.1B-Chat-v0.4-q4f16_1-MLC">TinyLlama 1.1B (~300MB) - Ultra Fast</option>
+                        <option value="Qwen2-0.5B-Instruct-q4f16_1-MLC">Qwen2 0.5B (~500MB) - Very Fast</option>
+                        <option value="Llama-3.2-1B-Instruct-q4f32_1-MLC">Llama-3.2-1B q4f32 (~600MB) - Balanced</option>
+                        <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC" selected>Llama-3.2-1B q4f16 (~1.2GB) - Current</option>
+                    </select>
+                    <span class="size-info" id="sizeInfo">Current: ~1.2GB download</span>
+                </div>
+                <button id="initButton" class="btn btn-primary">Initialize Model</button>
+                <button id="resetButton" class="btn btn-secondary" disabled>Reset Chat</button>
+                <button id="reinitButton" class="btn btn-secondary" disabled>Reinitialize Model</button>
+            </div>
+        </div>
+
+        <div class="model-info">
+            <strong>Model:</strong> <span id="currentModel">Llama-3.2-1B-Instruct-q4f16_1-MLC</span><br>
+            <strong>Size:</strong> <span id="currentSize">~1.2GB</span><br>
+            <strong>Mode:</strong> <span style="color: #28a745; font-weight: bold;">🧪 Test Mode (Deterministic)</span><br>
+            <strong>Parameters:</strong> temp=0.0, max_tokens=200-400<br>
+            <strong>Backend:</strong> WebLLM (Browser-based inference)<br>
+            <strong>Note:</strong> Model runs entirely in your browser - no server required!
+        </div>
+    </div>
+
+    <script type="module">
+        import * as webllm from "./node_modules/@mlc-ai/web-llm/lib/index.js";
+        
+        // WebLLM implementation directly in HTML
+        class LlamaWebLLM {
+            constructor() {
+                this.engine = null;
+                this.isLoading = false;
+                this.isReady = false;
+                this.modelId = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
+                this.conversationHistory = [];
+                this.modelSizes = {
+                    "TinyLlama-1.1B-Chat-v0.4-q4f16_1-MLC": "~300MB",
+                    "Qwen2-0.5B-Instruct-q4f16_1-MLC": "~500MB", 
+                    "Llama-3.2-1B-Instruct-q4f32_1-MLC": "~600MB",
+                    "Llama-3.2-1B-Instruct-q4f16_1-MLC": "~1.2GB"
+                };
+                // Timeout settings based on model size and complexity
+                this.timeoutSettings = {
+                    "TinyLlama-1.1B-Chat-v0.4-q4f16_1-MLC": { base: 30000, perChar: 10 }, // 30s base + 10ms per char
+                    "Qwen2-0.5B-Instruct-q4f16_1-MLC": { base: 45000, perChar: 15 }, // 45s base + 15ms per char
+                    "Llama-3.2-1B-Instruct-q4f32_1-MLC": { base: 60000, perChar: 20 }, // 60s base + 20ms per char
+                    "Llama-3.2-1B-Instruct-q4f16_1-MLC": { base: 90000, perChar: 25 } // 90s base + 25ms per char
+                };
+                this.initializationAttempts = 0;
+                this.maxInitAttempts = 3;
+            }
+
+            async initialize() {
+                if (this.isLoading || this.isReady) return;
+
+                try {
+                    this.isLoading = true;
+                    this.initializationAttempts++;
+                    this.updateStatus("Initializing WebLLM engine...");
+
+                    // Clean up any existing engine
+                    if (this.engine) {
+                        try {
+                            await this.engine.unload();
+                        } catch (e) {
+                            console.warn("Error unloading previous engine:", e);
+                        }
+                    }
+
+                    // Create new engine with initialization callback
+                    this.engine = new webllm.MLCEngine();
+                    
+                    // Debug output
+                    console.log(`🔄 Initializing model: ${this.modelId}`);
+                    console.log(`📦 Expected size: ${this.modelSizes[this.modelId] || 'Unknown'}`);
+                    
+                    // Update status and loading text
+                    this.updateStatus(`Loading ${this.modelId}...`);
+                    this.updateLoadingText(`Loading ${this.modelId}<br>Size: ${this.modelSizes[this.modelId] || 'Unknown'}<br>This may take a few minutes...`);
+                    this.updateModelStatus(`🔄 Initializing: ${this.modelId}`);
+                    
+                    // Initialize with progress callback and timeout
+                    const initPromise = this.engine.reload(this.modelId, {
+                        temperature: 0.0, // Deterministic for testing
+                        top_p: 1.0, // Full probability for deterministic results
+                        max_tokens: 300, // Consistent token limit for tests
+                    });
+
+                    // Add timeout to prevent hanging
+                    const timeoutPromise = new Promise((_, reject) => {
+                        setTimeout(() => reject(new Error("Initialization timeout after 5 minutes")), 300000);
+                    });
+
+                    await Promise.race([initPromise, timeoutPromise]);
+
+                    this.isReady = true;
+                    this.isLoading = false;
+                    
+                    // Debug success output
+                    console.log(`✅ Model loaded successfully: ${this.modelId}`);
+                    console.log(`🎯 Model ready for inference`);
+                    
+                    this.updateStatus(`✅ ${this.modelId} is ready!`);
+                    this.updateModelStatus(`✅ Loaded: ${this.modelId} (${this.modelSizes[this.modelId] || 'Unknown'})`);
+                    this.enableUI();
+
+                } catch (error) {
+                    console.error("Failed to initialize WebLLM:", error);
+                    this.isLoading = false;
+                    this.isReady = false;
+                    
+                    if (this.initializationAttempts < this.maxInitAttempts) {
+                        this.updateStatus(`❌ ${this.modelId} initialization failed (attempt ${this.initializationAttempts}/${this.maxInitAttempts}). Retrying in 3 seconds...`);
+                        this.updateModelStatus(`❌ Failed: ${this.modelId} (Retrying...)`);
+                        setTimeout(() => this.initialize(), 3000);
+                    } else {
+                        console.error(`❌ Failed to load model: ${this.modelId}`, error);
+                        this.updateStatus(`❌ Failed to initialize ${this.modelId} after ${this.maxInitAttempts} attempts: ${error.message}`);
+                        this.updateModelStatus(`❌ Failed: ${this.modelId}`);
+                        // Show alternative instructions
+                        addMessage('system', `WebLLM initialization failed for ${this.modelId}. This might be due to:\n` +
+                            '• Browser compatibility issues\n' +
+                            '• Insufficient memory\n' +
+                            '• Network connectivity problems\n' +
+                            'Try refreshing the page or selecting a smaller model (Chrome/Edge recommended).');
+                    }
+                }
+            }
+
+            async generateResponse(prompt, onUpdate = null) {
+                if (!this.isReady) {
+                    throw new Error("Model not ready. Please initialize first.");
+                }
+
+                try {
+                    this.updateStatus("🧠 Generating response...");
+                    
+                    // Validate and potentially truncate prompt
+                    if (prompt.length > 8000) {
+                        prompt = prompt.substring(0, 8000) + "\n\n[Note: Prompt was truncated due to length]";
+                    }
+                    
+                    // Prepare conversation with history (limited to prevent stack overflow)
+                    const messages = [...this.conversationHistory.slice(-4), {
+                        role: "user",
+                        content: prompt
+                    }];
+
+                    let fullResponse = "";
+                    let chunkCount = 0;
+                    const maxChunks = 100; // Prevent infinite loops
+
+                    // Calculate dynamic timeout based on prompt length and model
+                    const timeoutMs = this.calculateTimeout(prompt.length);
+                    this.updateStatus(`🧠 Generating response... (timeout: ${(timeoutMs/1000).toFixed(1)}s)`);
+                    
+                    // Debug: Show generation parameters
+                    console.log(`🎯 Generation parameters: temperature=0.0, max_tokens=400, deterministic mode`);
+                    
+                    // Create completion with proper error handling
+                    const completion = await Promise.race([
+                        this.engine.chat.completions.create({
+                            messages: messages,
+                            temperature: 0.0, // Deterministic for testing
+                            top_p: 1.0, // Full probability for deterministic results
+                            max_tokens: Math.max(200, Math.min(400, 400)), // 200-400 token range for tests
+                            stream: true,
+                            stop: ["\n\n", "User:", "Human:", "<|end|>"] // Add stop sequences
+                        }),
+                        // Dynamic timeout for generation
+                        new Promise((_, reject) => {
+                            setTimeout(() => {
+                                reject(new Error(`Generation timeout after ${(timeoutMs/1000).toFixed(1)} seconds. Try a shorter prompt or select a smaller/faster model.`));
+                            }, timeoutMs);
+                        })
+                    ]);
+
+                    let startTime = Date.now();
+                    let lastProgressUpdate = 0;
+                    
+                    for await (const chunk of completion) {
+                        if (chunkCount++ > maxChunks) {
+                            console.warn("Maximum chunks reached, stopping generation");
+                            break;
+                        }
+
+                        const delta = chunk.choices[0]?.delta?.content;
+                        if (delta) {
+                            fullResponse += delta;
+                            if (onUpdate) {
+                                onUpdate(fullResponse);
+                            }
+                            
+                            // Update progress every 2 seconds
+                            const now = Date.now();
+                            if (now - lastProgressUpdate > 2000) {
+                                const elapsed = ((now - startTime) / 1000).toFixed(1);
+                                const remaining = Math.max(0, (timeoutMs - (now - startTime)) / 1000).toFixed(1);
+                                this.updateStatus(`🧠 Generating... (${elapsed}s elapsed, ${remaining}s remaining)`);
+                                lastProgressUpdate = now;
+                            }
+                        }
+
+                        // Check for completion
+                        if (chunk.choices[0]?.finish_reason) {
+                            const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
+                            console.log(`✅ Generation completed in ${totalTime}s`);
+                            break;
+                        }
+                    }
+
+                    // Update conversation history
+                    this.conversationHistory.push(
+                        { role: "user", content: prompt },
+                        { role: "assistant", content: fullResponse }
+                    );
+
+                    // Keep history manageable
+                    if (this.conversationHistory.length > 10) {
+                        this.conversationHistory = this.conversationHistory.slice(-8);
+                    }
+
+                    this.updateStatus("✅ Response generated successfully!");
+                    return fullResponse || "I apologize, but I couldn't generate a response. Please try again.";
+
+                } catch (error) {
+                    console.error("Error generating response:", error);
+                    
+                    // Handle specific error types
+                    if (error.message.includes("call stack") || error.message.includes("Maximum")) {
+                        this.updateStatus(`❌ Memory error - resetting conversation`);
+                        await this.resetConversation();
+                        throw new Error("Memory overflow detected. Conversation has been reset. Please try a shorter prompt.");
+                    } else if (error.message.includes("timeout")) {
+                        const currentModel = this.modelId;
+                        const isLargeModel = currentModel.includes("1B") && currentModel.includes("q4f16");
+                        const suggestion = isLargeModel ? 
+                            "Consider switching to TinyLlama or Qwen2 for faster responses, or try a shorter prompt." :
+                            "Please try a shorter or simpler prompt.";
+                        
+                        this.updateStatus(`❌ Generation timeout`);
+                        console.log(`⏱️ Timeout occurred with model: ${currentModel}`);
+                        throw new Error(`${error.message}\n\nSuggestion: ${suggestion}`);
+                    } else {
+                        this.updateStatus(`❌ Error: ${error.message}`);
+                        throw error;
+                    }
+                }
+            }
+
+            async resetConversation() {
+                try {
+                    if (this.isReady && this.engine) {
+                        await this.engine.resetChat();
+                    }
+                    
+                    // Clear local conversation history
+                    this.conversationHistory = [];
+                    
+                    this.updateStatus("🔄 Conversation reset");
+                } catch (error) {
+                    console.error("Error resetting conversation:", error);
+                    this.conversationHistory = []; // Clear history anyway
+                    this.updateStatus("🔄 Conversation reset (with errors)");
+                }
+            }
+
+            async forceReinit() {
+                this.isReady = false;
+                this.isLoading = false;
+                this.initializationAttempts = 0;
+                this.conversationHistory = [];
+                
+                if (this.engine) {
+                    try {
+                        await this.engine.unload();
+                    } catch (e) {
+                        console.warn("Error during cleanup:", e);
+                    }
+                }
+                
+                this.engine = null;
+                await this.initialize();
+            }
+
+            updateStatus(message) {
+                const statusElement = document.getElementById('status');
+                if (statusElement) {
+                    statusElement.textContent = message;
+                    console.log("Status:", message);
+                }
+            }
+
+            updateModelStatus(message) {
+                const modelStatusElement = document.getElementById('modelStatus');
+                if (modelStatusElement) {
+                    modelStatusElement.textContent = message;
+                    console.log("Model Status:", message);
+                }
+            }
+
+            updateLoadingText(html) {
+                const loadingTextElement = document.getElementById('loadingText');
+                if (loadingTextElement) {
+                    loadingTextElement.innerHTML = html;
+                }
+            }
+
+            calculateTimeout(promptLength) {
+                const settings = this.timeoutSettings[this.modelId] || this.timeoutSettings["Llama-3.2-1B-Instruct-q4f16_1-MLC"];
+                // Adjusted for 200-400 token range and deterministic mode
+                const calculatedTimeout = settings.base + (promptLength * settings.perChar * 0.8); // 20% faster with deterministic
+                const minTimeout = 15000; // Minimum 15 seconds
+                const maxTimeout = 120000; // Maximum 2 minutes (reduced for shorter responses)
+                
+                const finalTimeout = Math.max(minTimeout, Math.min(maxTimeout, calculatedTimeout));
+                console.log(`⏱️ Timeout calculated: ${finalTimeout}ms (${(finalTimeout/1000).toFixed(1)}s) for prompt length ${promptLength} (deterministic mode)`);
+                
+                return finalTimeout;
+            }
+
+            enableUI() {
+                const sendButton = document.getElementById('sendButton');
+                const promptInput = document.getElementById('promptInput');
+                const resetButton = document.getElementById('resetButton');
+                const fileInput = document.getElementById('fileInput');
+
+                if (sendButton) sendButton.disabled = false;
+                if (promptInput) promptInput.disabled = false;
+                if (resetButton) resetButton.disabled = false;
+                if (fileInput) fileInput.disabled = false;
+            }
+        }
+        
+        // Initialize the Llama WebLLM instance
+        const llamaLLM = new LlamaWebLLM();
+        let isGenerating = false;
+
+        // DOM elements
+        const initButton = document.getElementById('initButton');
+        const sendButton = document.getElementById('sendButton');
+        const resetButton = document.getElementById('resetButton');
+        const reinitButton = document.getElementById('reinitButton');
+        const promptInput = document.getElementById('promptInput');
+        const chatContainer = document.getElementById('chatContainer');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const fileInput = document.getElementById('fileInput');
+        const fileInputLabel = document.getElementById('fileInputLabel');
+        const fileActions = document.getElementById('fileActions');
+        const fileName = document.getElementById('fileName');
+        const removeFile = document.getElementById('removeFile');
+        const filePreview = document.getElementById('filePreview');
+        
+        // File handling variables
+        let currentFile = null;
+        let fileContent = "";
+
+        // Event listeners
+        initButton.addEventListener('click', initializeModel);
+        sendButton.addEventListener('click', sendMessage);
+        resetButton.addEventListener('click', resetConversation);
+        reinitButton.addEventListener('click', reinitializeModel);
+        fileInput.addEventListener('change', handleFileSelect);
+        removeFile.addEventListener('click', clearFile);
+        
+        promptInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey && !sendButton.disabled) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        async function initializeModel() {
+            try {
+                initButton.disabled = true;
+                loadingIndicator.style.display = 'block';
+                
+                await llamaLLM.initialize();
+                
+                loadingIndicator.style.display = 'none';
+                initButton.disabled = true; // Keep button visible but disabled when loaded
+                initButton.textContent = '✅ Model Loaded';
+                reinitButton.disabled = false;
+                
+                addMessage('system', `🦙 ${llamaLLM.modelId} is ready! You can now start chatting.`);
+                
+            } catch (error) {
+                console.error('Initialization failed:', error);
+                loadingIndicator.style.display = 'none';
+                initButton.disabled = false;
+                addMessage('system', `❌ Failed to initialize: ${error.message}`);
+            }
+        }
+
+        async function sendMessage() {
+            const prompt = promptInput.value.trim();
+            const hasFile = currentFile && fileContent;
+            
+            if ((!prompt && !hasFile) || isGenerating) return;
+
+            // Construct the full message
+            let fullMessage = prompt;
+            let displayMessage = prompt;
+            
+            if (hasFile) {
+                const fileInfo = `File: ${currentFile.name} (${(currentFile.size / 1024).toFixed(1)}KB)`;
+                displayMessage = hasFile && !prompt ? fileInfo : `${prompt}\n\n[${fileInfo}]`;
+                
+                // Add file content to the actual prompt
+                fullMessage = prompt ? 
+                    `${prompt}\n\nFile content (${currentFile.name}):\n${fileContent}` :
+                    `Please analyze this file (${currentFile.name}):\n${fileContent}`;
+            }
+
+            // Validate message length
+            if (fullMessage.length > 10000) {
+                addMessage('system', '❌ Message too long. Please reduce the text or file size and try again.');
+                return;
+            }
+
+            // Add user message to UI
+            addMessage('user', displayMessage);
+            promptInput.value = '';
+            
+            // Disable input while generating
+            isGenerating = true;
+            sendButton.disabled = true;
+            promptInput.disabled = true;
+            fileInput.disabled = true;
+
+            try {
+                // Create placeholder for assistant response
+                const assistantElement = addMessage('assistant', '');
+                
+                // Generate response with streaming
+                const response = await llamaLLM.generateResponse(fullMessage, (partialResponse) => {
+                    assistantElement.textContent = partialResponse;
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                });
+
+                assistantElement.textContent = response;
+
+                // Clear file after sending if there was one
+                if (hasFile) {
+                    clearFile();
+                }
+
+            } catch (error) {
+                console.error('Generation failed:', error);
+                addMessage('system', `❌ Error: ${error.message}`);
+            } finally {
+                // Re-enable input
+                isGenerating = false;
+                sendButton.disabled = false;
+                promptInput.disabled = false;
+                fileInput.disabled = false;
+                promptInput.focus();
+            }
+        }
+
+        async function resetConversation() {
+            try {
+                await llamaLLM.resetConversation();
+                chatContainer.innerHTML = '';
+                addMessage('system', '🔄 Conversation reset. You can start a new chat.');
+            } catch (error) {
+                console.error('Reset failed:', error);
+                addMessage('system', '🔄 Conversation reset (with errors). You can start a new chat.');
+            }
+        }
+
+        async function reinitializeModel() {
+            try {
+                reinitButton.disabled = true;
+                loadingIndicator.style.display = 'block';
+                
+                addMessage('system', '🔄 Reinitializing model...');
+                
+                await llamaLLM.forceReinit();
+                
+                loadingIndicator.style.display = 'none';
+                reinitButton.disabled = false;
+                
+                addMessage('system', '✅ Model reinitialized successfully!');
+                
+            } catch (error) {
+                console.error('Reinitialization failed:', error);
+                loadingIndicator.style.display = 'none';
+                reinitButton.disabled = false;
+                addMessage('system', `❌ Reinitialization failed: ${error.message}`);
+            }
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Check file size (limit to 1MB for performance)
+            if (file.size > 1024 * 1024) {
+                addMessage('system', '❌ File too large. Please select a file smaller than 1MB.');
+                return;
+            }
+
+            currentFile = file;
+            
+            // Update UI
+            fileInputLabel.textContent = `📎 ${file.name}`;
+            fileInputLabel.classList.add('has-file');
+            fileName.textContent = `${file.name} (${(file.size / 1024).toFixed(1)}KB)`;
+            fileActions.style.display = 'flex';
+
+            // Read file content
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                fileContent = e.target.result;
+                
+                // Show preview
+                const preview = fileContent.length > 200 ? 
+                    fileContent.substring(0, 200) + '...' : 
+                    fileContent;
+                filePreview.textContent = preview;
+                filePreview.style.display = 'block';
+                
+                addMessage('system', `📎 File loaded: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`);
+            };
+            
+            reader.onerror = function() {
+                addMessage('system', '❌ Error reading file. Please try again.');
+                clearFile();
+            };
+            
+            reader.readAsText(file);
+        }
+
+        function clearFile() {
+            currentFile = null;
+            fileContent = "";
+            fileInput.value = "";
+            
+            // Reset UI
+            fileInputLabel.textContent = "📎 Attach File";
+            fileInputLabel.classList.remove('has-file');
+            fileActions.style.display = 'none';
+            filePreview.style.display = 'none';
+        }
+
+        function addMessage(type, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}-message`;
+            
+            // Handle multiline content properly
+            if (content.includes('\n')) {
+                messageDiv.style.whiteSpace = 'pre-wrap';
+            }
+            
+            messageDiv.textContent = content;
+            
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            return messageDiv;
+        }
+
+        // Model selector functionality
+        const modelSelect = document.getElementById('modelSelect');
+        const sizeInfo = document.getElementById('sizeInfo');
+        const currentModel = document.getElementById('currentModel');
+        const currentSize = document.getElementById('currentSize');
+        
+        modelSelect.addEventListener('change', function() {
+            const selectedModel = this.value;
+            const modelSize = llamaLLM.modelSizes[selectedModel];
+            
+            // Debug output
+            console.log(`🔄 Model selected: ${selectedModel} (${modelSize})`);
+            
+            // Update UI
+            sizeInfo.textContent = `Selected: ${modelSize} download`;
+            currentModel.textContent = selectedModel;
+            currentSize.textContent = modelSize;
+            
+            // Update model in llamaLLM instance
+            llamaLLM.modelId = selectedModel;
+            
+            // Always enable the initialize button when model is changed
+            initButton.disabled = false;
+            initButton.textContent = 'Initialize Model'; // Reset button text
+            initButton.style.display = 'block'; // Ensure button is visible
+            console.log(`🔘 Initialize button enabled for model change to ${selectedModel}`);
+            
+            // Reset if model was already loaded
+            if (llamaLLM.isReady) {
+                addMessage('system', `🔄 Model changed to ${selectedModel} (${modelSize}). Click "Initialize Model" to load the new model.`);
+                llamaLLM.isReady = false;
+                resetButton.disabled = true;
+                reinitButton.disabled = true;
+                document.getElementById('status').textContent = 'Model changed. Click "Initialize Model" to load.';
+                llamaLLM.updateModelStatus(`🔄 Selected: ${selectedModel} (Not loaded)`);
+            } else {
+                // Update status for not-yet-initialized models
+                document.getElementById('status').textContent = 'Click "Initialize Model" to load selected model.';
+                llamaLLM.updateModelStatus(`🔄 Selected: ${selectedModel} (Not loaded)`);
+                console.log(`✅ Initialize button enabled for ${selectedModel}`);
+            }
+        });
+
+        // Initial debug output and status
+        console.log('🚀 WebLLM Interface Initialized');
+        console.log(`📋 Default model: ${llamaLLM.modelId}`);
+        console.log(`📦 Default size: ${llamaLLM.modelSizes[llamaLLM.modelId]}`);
+        
+        // Set initial model status
+        llamaLLM.updateModelStatus(`🔄 Selected: ${llamaLLM.modelId} (Not loaded)`);
+
+        // Add welcome message
+        addMessage('system', 'Welcome! Select your preferred model size and click "Initialize Model" to start.');
+        
+        // Enable input field immediately for testing (remove this after model loads)
+        setTimeout(() => {
+            if (!llamaLLM.isReady) {
+                promptInput.disabled = false;
+                promptInput.placeholder = "Type here or attach a file (Initialize model first to actually chat)";
+                fileInput.disabled = false;
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
