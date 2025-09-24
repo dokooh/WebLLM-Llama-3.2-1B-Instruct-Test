@@ -49,6 +49,17 @@ class LlamaWebLLM {
     }
 
     /**
+     * Validate and truncate message if too long
+     */
+    validateMessage(message, maxLength = 8000) {
+        if (message.length > maxLength) {
+            console.warn(`⚠️ Message truncated from ${message.length} to ${maxLength} characters`);
+            return message.substring(0, maxLength) + "\n\n[Message truncated due to length limit]";
+        }
+        return message;
+    }
+
+    /**
      * Generate a response using the Llama model
      */
     async generateResponse(prompt, onUpdate = null) {
@@ -56,13 +67,20 @@ class LlamaWebLLM {
             throw new Error("Model not ready. Please initialize first.");
         }
 
+        // Validate and truncate if necessary
+        const validatedPrompt = this.validateMessage(prompt);
+        
+        if (validatedPrompt !== prompt) {
+            this.updateStatus("⚠️ Long message truncated for processing");
+        }
+
         try {
             this.updateStatus("🧠 Generating response...");
             
             const messages = [
                 {
-                    role: "user",
-                    content: prompt
+                    role: "user", 
+                    content: validatedPrompt
                 }
             ];
 
